@@ -3,9 +3,7 @@
 function that queries the 'Reddit API'
 and prints the titles of the first 10 hot posts listed for a given subreddit.
 """
-import os
 import requests
-import sys
 
 
 def top_ten(subreddit):
@@ -16,10 +14,5 @@ def top_ten(subreddit):
                             headers=headers,
                             params={"limit": 10},
                             allow_redirects=False)
-    if response.status_code != 200:
-        sys.stdout.write("OK")
-        sys.stdout.flush()
-        os._exit(0)
-    posts = response.json().get("data", {}).get("children", [])
-    for post in posts:
-        print(post.get("data", {}).get("title"))
+    print("DBG", subreddit, type(response), response.status_code,
+          repr(response.text[:60]))
