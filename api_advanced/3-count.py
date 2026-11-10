@@ -3,50 +3,39 @@
 import requests
 
 
-def count_words(subreddit, word_list, after="", count=[]):
+def count_words(subreddit, word_list, after=None, counts=None):
     """ prints a sorted count of given keywords """
-
-    if after == "":
-        count = [0] * len(word_list)
+    if counts is None:
+        counts = {}
+        for word in word_list:
+            counts[word.lower()] = 0
 
     url = "https://www.reddit.com/r/{}/hot.json".format(subreddit)
-    request = requests.get(url,
-                           params={'after': after},
-                           allow_redirects=False,
-                           headers={'User-Agent': 'Mozilla/5.0'})
+    headers = {"User-Agent": "linux:alu-scripting:v1.0 (by /u/favour-nziza)"}
+    response = requests.get(url,
+                            headers=headers,
+                            params={"after": after, "limit": 100},
+                            allow_redirects=False)
+    if response.status_code != 200:
+        return
 
-    if request.status_code == 200:
-        data = request.json()
+    data = response.json().get("data", {})
+    for post in data.get("children", []):
+        title = post.get("data", {}).get("title", "")
+        for word in title.lower().split():
+            if word in counts:
+                counts[word] += 1
 
-        for topic in (data['data']['children']):
-            for word in topic['data']['title'].split():
-                for i in range(len(word_list)):
-                    if word_list[i].lower() == word.lower():
-                        count[i] += 1
+    after = data.get("after")
+    if after is not None:
+        return count_words(subreddit, word_list, after, counts)
 
-        after = data['data']['after']
-        if after is None:
-            save = []
-            for i in range(len(word_list)):
-                for j in range(i + 1, len(word_list)):
-                    if word_list[i].lower() == word_list[j].lower():
-                        save.append(j)
-                        count[i] += count[j]
+    weights = {}
+    for word in word_list:
+        weights[word.lower()] = weights.get(word.lower(), 0) + 1
 
-            for i in range(len(word_list)):
-                for j in range(i, len(word_list)):
-                    if (count[j] > count[i] or
-                            (word_list[i] > word_list[j] and
-                             count[j] == count[i])):
-                        aux = count[i]
-                        count[i] = count[j]
-                        count[j] = aux
-                        aux = word_list[i]
-                        word_list[i] = word_list[j]
-                        word_list[j] = aux
-
-            for i in range(len(word_list)):
-                if (count[i] > 0) and i not in save:
-                    print("{}: {}".format(word_list[i].lower(), count[i]))
-        else:
-            count_words(subreddit, word_list, after, count)
+    totals = [(word, count * weights.get(word, 1))
+              for word, count in counts.items()]
+    for word, total in sorted(totals, key=lambda kv: (-kv[1], kv[0])):
+        if total > 0:
+            print("{}: {}".format(word, total))
